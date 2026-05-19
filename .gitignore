@@ -1,0 +1,14 @@
+node_modules
+dist
+out
+.DS_Store
+.eslintcache
+*.log*
+*.tsbuildinfo
+
+# FFmpeg binaries (~220 MB each, exceed GitHub's 100 MB limit).
+# See README for how to obtain them locally.
+resources/ffmpeg/*.exe
+
+# Build artefacts
+dev-app-update.yml
