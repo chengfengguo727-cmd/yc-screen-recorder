@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { BurnProgress, RecordingFile } from '../../../preload'
 
 interface Props {
@@ -26,6 +27,7 @@ function formatSpeed(speed: string): string {
 }
 
 export function BurnInModal({ target, onClose, onDone }: Props): React.JSX.Element | null {
+  const { t } = useTranslation()
   const [fontName, setFontName] = useState('Microsoft JhengHei')
   const [fontSize, setFontSize] = useState(24)
   const [outline, setOutline] = useState(2)
@@ -73,7 +75,7 @@ export function BurnInModal({ target, onClose, onDone }: Props): React.JSX.Eleme
 
   const start = async (): Promise<void> => {
     if (!target.srtPath) {
-      setError('找不到對應的 SRT 字幕檔')
+      setError(t('burnIn.noSrt'))
       return
     }
     setError(null)
@@ -105,22 +107,24 @@ export function BurnInModal({ target, onClose, onDone }: Props): React.JSX.Eleme
     <div className="modal-backdrop" onClick={running ? undefined : onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <div>燒進字幕</div>
+          <div>{t('burnIn.title')}</div>
           <button className="btn-small" disabled={running} onClick={onClose}>
             ✕
           </button>
         </div>
         <div className="modal-body">
           <section className="opt-section">
-            <h3>來源</h3>
+            <h3>{t('burnIn.source')}</h3>
             <div className="opt-hint">{target.name}</div>
             <div className="opt-hint">
-              字幕：{target.srtPath ? target.srtPath.split(/[\\/]/).pop() : '(找不到)'}
+              {t('burnIn.subtitle', {
+                name: target.srtPath ? target.srtPath.split(/[\\/]/).pop() : t('burnIn.subtitleMissing')
+              })}
             </div>
           </section>
 
           <section className="opt-section">
-            <h3>輸出檔名</h3>
+            <h3>{t('burnIn.outputName')}</h3>
             <input
               type="text"
               className="opt-text"
@@ -131,10 +135,10 @@ export function BurnInModal({ target, onClose, onDone }: Props): React.JSX.Eleme
           </section>
 
           <section className="opt-section">
-            <h3>字幕樣式</h3>
+            <h3>{t('burnIn.style')}</h3>
             <div className="stt-row">
               <label>
-                字型
+                {t('burnIn.fontName')}
                 <select
                   value={fontName}
                   disabled={running}
@@ -148,7 +152,7 @@ export function BurnInModal({ target, onClose, onDone }: Props): React.JSX.Eleme
                 </select>
               </label>
               <label>
-                字級
+                {t('burnIn.fontSize')}
                 <select
                   value={fontSize}
                   disabled={running}
@@ -162,7 +166,7 @@ export function BurnInModal({ target, onClose, onDone }: Props): React.JSX.Eleme
                 </select>
               </label>
               <label>
-                邊框粗細
+                {t('burnIn.outline')}
                 <select
                   value={outline}
                   disabled={running}
@@ -176,7 +180,7 @@ export function BurnInModal({ target, onClose, onDone }: Props): React.JSX.Eleme
                 </select>
               </label>
               <label>
-                位元率
+                {t('burnIn.bitrate')}
                 <select
                   value={bitrate}
                   disabled={running}
@@ -197,19 +201,21 @@ export function BurnInModal({ target, onClose, onDone }: Props): React.JSX.Eleme
 
           {(running || progress) && (
             <section className="opt-section">
-              <h3>進度</h3>
+              <h3>{t('burnIn.progress')}</h3>
               <div className="download-progress">
                 <div className="download-fill" style={{ width: `${pct}%` }} />
               </div>
               <div className="opt-hint">
-                {pct.toFixed(1)}% · 速度 {formatSpeed(progress?.speed ?? '')} · {progress?.fps ?? 0} fps
+                {pct.toFixed(1)}% · {formatSpeed(progress?.speed ?? '')} · {progress?.fps ?? 0} fps
               </div>
             </section>
           )}
 
           {error && (
             <section className="opt-section">
-              <div className="warn">錯誤：{error}</div>
+              <div className="warn">
+                {t('common.error')}: {error}
+              </div>
             </section>
           )}
         </div>
@@ -218,17 +224,17 @@ export function BurnInModal({ target, onClose, onDone }: Props): React.JSX.Eleme
             <>
               <div style={{ flex: 1 }} />
               <button className="btn-small" onClick={onClose}>
-                取消
+                {t('common.cancel')}
               </button>
               <button className="btn btn-record" onClick={start} disabled={!target.srtPath}>
-                開始燒錄
+                {t('burnIn.start')}
               </button>
             </>
           ) : (
             <>
               <div style={{ flex: 1 }} />
               <button className="btn btn-stop" onClick={cancel}>
-                取消燒錄
+                {t('burnIn.cancel')}
               </button>
             </>
           )}

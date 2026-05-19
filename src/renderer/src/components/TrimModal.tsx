@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { RecordingFile, TrimProgress } from '../../../preload'
 
 interface Props {
@@ -42,6 +43,7 @@ function parseTime(s: string): number | null {
 }
 
 export function TrimModal({ target, onClose, onDone }: Props): React.JSX.Element | null {
+  const { t } = useTranslation()
   const videoRef = useRef<HTMLVideoElement>(null)
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
@@ -146,7 +148,7 @@ export function TrimModal({ target, onClose, onDone }: Props): React.JSX.Element
 
   const start = async (): Promise<void> => {
     if (endSec <= startSec) {
-      setError('結束時間必須大於開始時間')
+      setError(t('trim.invalidRange'))
       return
     }
     setError(null)
@@ -179,7 +181,7 @@ export function TrimModal({ target, onClose, onDone }: Props): React.JSX.Element
     <div className="modal-backdrop" onClick={running ? undefined : onClose}>
       <div className="modal trim-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <div>剪輯 — {target.name}</div>
+          <div>{t('trim.title', { name: target.name })}</div>
           <button className="btn-small" disabled={running} onClick={onClose}>
             ✕
           </button>
@@ -216,10 +218,10 @@ export function TrimModal({ target, onClose, onDone }: Props): React.JSX.Element
 
           <div className="opt-row">
             <button className="btn-small" onClick={() => setStart(currentTime)} disabled={running}>
-              ⏮ 設為起點
+              {t('trim.setStart')}
             </button>
             <label>
-              起點
+              {t('trim.pointStart')}
               <input
                 type="text"
                 className="opt-text opt-num"
@@ -235,7 +237,7 @@ export function TrimModal({ target, onClose, onDone }: Props): React.JSX.Element
               />
             </label>
             <label>
-              終點
+              {t('trim.pointEnd')}
               <input
                 type="text"
                 className="opt-text opt-num"
@@ -251,18 +253,18 @@ export function TrimModal({ target, onClose, onDone }: Props): React.JSX.Element
               />
             </label>
             <button className="btn-small" onClick={() => setEnd(currentTime)} disabled={running}>
-              ⏭ 設為終點
+              {t('trim.setEnd')}
             </button>
             <button className="btn-small" onClick={playRange} disabled={running || trimDuration <= 0}>
-              ▶ 預覽範圍
+              {t('trim.previewRange')}
             </button>
             <div style={{ flex: 1 }} />
-            <span className="opt-hint">剪後長度：{fmtTime(trimDuration)}</span>
+            <span className="opt-hint">{t('trim.outputDuration', { duration: fmtTime(trimDuration) })}</span>
           </div>
 
           <div className="opt-row">
             <label style={{ flex: 1 }}>
-              輸出檔名
+              {t('trim.outputName')}
               <input
                 type="text"
                 className="opt-text"
@@ -281,11 +283,9 @@ export function TrimModal({ target, onClose, onDone }: Props): React.JSX.Element
                 disabled={running}
                 onChange={(e) => setReencode(e.target.checked)}
               />
-              精確剪切（重新編碼，較慢但畫格精確）
+              {t('trim.reencode')}
             </label>
-            <span className="opt-hint">
-              預設為 stream copy 模式，切點對齊到最近的 keyframe，速度快幾乎不耗時。
-            </span>
+            <span className="opt-hint">{t('trim.reencodeHint')}</span>
           </div>
 
           {(running || progress) && (
@@ -297,24 +297,28 @@ export function TrimModal({ target, onClose, onDone }: Props): React.JSX.Element
             </div>
           )}
 
-          {error && <div className="warn">錯誤：{error}</div>}
+          {error && (
+            <div className="warn">
+              {t('common.error')}: {error}
+            </div>
+          )}
         </div>
         <div className="modal-footer">
           {!running ? (
             <>
               <div style={{ flex: 1 }} />
               <button className="btn-small" onClick={onClose}>
-                取消
+                {t('common.cancel')}
               </button>
               <button className="btn btn-record" onClick={start} disabled={trimDuration <= 0}>
-                開始剪輯
+                {t('trim.start')}
               </button>
             </>
           ) : (
             <>
               <div style={{ flex: 1 }} />
               <button className="btn btn-stop" onClick={cancel}>
-                取消剪輯
+                {t('trim.cancel')}
               </button>
             </>
           )}

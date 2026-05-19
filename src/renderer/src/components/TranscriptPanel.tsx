@@ -1,13 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store'
-
-const LANGUAGES = [
-  { value: 'auto', label: '自動偵測' },
-  { value: 'zh', label: '中文' },
-  { value: 'en', label: 'English' },
-  { value: 'ja', label: '日本語' },
-  { value: 'ko', label: '한국어' }
-]
 
 function formatBytes(b: number): string {
   if (b < 1024 * 1024) return `${(b / 1024).toFixed(0)} KB`
@@ -21,6 +14,7 @@ function formatTime(s: number): string {
 }
 
 export function TranscriptPanel(): React.JSX.Element {
+  const { t } = useTranslation()
   const {
     whisperModels,
     selectedWhisperKey,
@@ -40,6 +34,14 @@ export function TranscriptPanel(): React.JSX.Element {
     setModelDownload
   } = useAppStore()
 
+  const languages = [
+    { value: 'auto', label: t('stt.languageAuto') },
+    { value: 'zh', label: t('stt.langZh') },
+    { value: 'en', label: t('stt.langEn') },
+    { value: 'ja', label: t('stt.langJa') },
+    { value: 'ko', label: t('stt.langKo') }
+  ]
+
   const [downloading, setDownloading] = useState<string | null>(null)
   const isRecording = session.status === 'recording' || session.status === 'starting'
 
@@ -58,7 +60,7 @@ export function TranscriptPanel(): React.JSX.Element {
       await window.api.downloadWhisperModel(key)
       await refreshWhisperModels()
     } catch (e) {
-      alert(`下載失敗：${(e as Error).message}`)
+      alert(`${t('common.error')}: ${(e as Error).message}`)
     } finally {
       setDownloading(null)
       setModelDownload(null)
@@ -71,7 +73,7 @@ export function TranscriptPanel(): React.JSX.Element {
 
   return (
     <div className="panel">
-      <div className="panel-title">即時轉錄 (STT)</div>
+      <div className="panel-title">{t('stt.title')}</div>
       <div className="stt-row">
         <label className="checkbox">
           <input
@@ -80,15 +82,13 @@ export function TranscriptPanel(): React.JSX.Element {
             disabled={isRecording || !selectedModel?.installed || (!micEnabled && !systemEnabled)}
             onChange={(e) => setSttEnabled(e.target.checked)}
           />
-          錄影時即時生成 SRT
+          {t('stt.enable')}
         </label>
-        {!micEnabled && !systemEnabled && (
-          <span className="warn">需先啟用麥克風或系統音</span>
-        )}
+        {!micEnabled && !systemEnabled && <span className="warn">{t('stt.needAudio')}</span>}
       </div>
       <div className="stt-row">
         <label>
-          模型
+          {t('stt.model')}
           <select
             value={selectedWhisperKey ?? ''}
             disabled={isRecording}
@@ -96,19 +96,19 @@ export function TranscriptPanel(): React.JSX.Element {
           >
             {whisperModels.map((m) => (
               <option key={m.key} value={m.key}>
-                {m.key} {m.installed ? '✓' : `(${formatBytes(m.sizeBytes)})`}
+                {m.key} {m.installed ? t('stt.modelInstalled') : `(${formatBytes(m.sizeBytes)})`}
               </option>
             ))}
           </select>
         </label>
         <label>
-          語言
+          {t('stt.language')}
           <select
             value={whisperLanguage}
             disabled={isRecording}
             onChange={(e) => setWhisperLanguage(e.target.value)}
           >
-            {LANGUAGES.map((l) => (
+            {languages.map((l) => (
               <option key={l.value} value={l.value}>
                 {l.label}
               </option>
@@ -116,16 +116,16 @@ export function TranscriptPanel(): React.JSX.Element {
           </select>
         </label>
         <label>
-          佇列秒數
+          {t('stt.queueSeconds')}
           <select
             value={whisperQueueSeconds}
             disabled={isRecording}
             onChange={(e) => setWhisperQueueSeconds(Number(e.target.value))}
           >
-            <option value={2}>2 (即時)</option>
-            <option value={3}>3 (預設)</option>
-            <option value={5}>5</option>
-            <option value={8}>8 (準確)</option>
+            <option value={2}>{t('stt.queue2')}</option>
+            <option value={3}>{t('stt.queue3')}</option>
+            <option value={5}>{t('stt.queue5')}</option>
+            <option value={8}>{t('stt.queue8')}</option>
           </select>
         </label>
       </div>
@@ -146,24 +146,22 @@ export function TranscriptPanel(): React.JSX.Element {
               <span className="volume-label">
                 {modelDownload
                   ? `${formatBytes(modelDownload.received)} / ${formatBytes(modelDownload.total)}`
-                  : '連線中…'}
+                  : t('stt.connecting')}
               </span>
               <button className="btn-small" onClick={() => onCancel(selectedModel.key)}>
-                取消
+                {t('common.cancel')}
               </button>
             </>
           ) : (
             <button className="btn btn-record" onClick={() => onDownload(selectedModel.key)}>
-              下載模型 ({formatBytes(selectedModel.sizeBytes)})
+              {t('stt.downloadModel', { size: formatBytes(selectedModel.sizeBytes) })}
             </button>
           )}
         </div>
       )}
       <div className="transcript-box">
         {transcriptSegments.length === 0 ? (
-          <div className="empty">
-            {sttEnabled ? '錄影開始後 whisper filter 會在此即時顯示…' : '尚未啟用'}
-          </div>
+          <div className="empty">{sttEnabled ? t('stt.emptyEnabled') : t('stt.emptyDisabled')}</div>
         ) : (
           <ul>
             {transcriptSegments.slice(-50).map((s) => (

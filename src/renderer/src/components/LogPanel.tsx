@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store'
 
 export function LogPanel(): React.JSX.Element {
+  const { t } = useTranslation()
   const { logs } = useAppStore()
   const [open, setOpen] = useState(false)
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle')
@@ -35,12 +37,12 @@ export function LogPanel(): React.JSX.Element {
     <div className={`log-panel ${open ? 'open' : ''}`}>
       <div className="log-toolbar">
         <button className="log-toggle" onClick={() => setOpen((o) => !o)}>
-          {open ? '▼' : '▲'} FFmpeg 日誌 ({logs.length})
+          {open ? t('log.toggle', { count: logs.length }) : t('log.expand', { count: logs.length })}
         </button>
         {open && (
           <>
             <button className="btn-small" onClick={copyAll}>
-              {copyState === 'copied' ? '✓ 已複製' : '複製全部'}
+              {copyState === 'copied' ? t('log.copied') : t('log.copyAll')}
             </button>
             <button
               className="btn-small"
@@ -51,7 +53,7 @@ export function LogPanel(): React.JSX.Element {
                 }
               }}
             >
-              全選
+              {t('log.selectAll')}
             </button>
           </>
         )}

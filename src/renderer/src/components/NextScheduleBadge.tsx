@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { NextFireInfo } from '../../../preload'
 
 function fmtDateTime(ms: number): string {
@@ -17,18 +18,24 @@ function fmtDateTime(ms: number): string {
   return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${time}`
 }
 
-function humanDelta(ms: number): string {
-  if (ms < 60_000) return '< 1 分鐘'
-  const totalMin = Math.round(ms / 60_000)
-  if (totalMin < 60) return `${totalMin} 分後`
-  const h = Math.floor(totalMin / 60)
-  const m = totalMin % 60
-  if (h < 24) return m > 0 ? `${h} 小時 ${m} 分後` : `${h} 小時後`
-  const d = Math.floor(h / 24)
-  return `${d} 天後`
+function useHumanDelta(): (ms: number) => string {
+  const { t } = useTranslation()
+  return (ms: number): string => {
+    if (ms < 60_000) return t('schedule.deltaLessThanMin')
+    const totalMin = Math.round(ms / 60_000)
+    if (totalMin < 60) return t('schedule.deltaMin', { n: totalMin })
+    const h = Math.floor(totalMin / 60)
+    const m = totalMin % 60
+    if (h < 24) return m > 0 ? t('schedule.deltaHourMin', { h, m }) : t('schedule.deltaHour', { h })
+    const d = Math.floor(h / 24)
+    const hh = h % 24
+    return hh > 0 ? t('schedule.deltaDayHour', { d, h: hh }) : t('schedule.deltaDay', { d })
+  }
 }
 
 export function NextScheduleBadge(): React.JSX.Element | null {
+  const { t } = useTranslation()
+  const humanDelta = useHumanDelta()
   const [next, setNext] = useState<NextFireInfo | null>(null)
   const [now, setNow] = useState(Date.now())
 
@@ -58,7 +65,10 @@ export function NextScheduleBadge(): React.JSX.Element | null {
   const urgent = delta < 60_000
 
   return (
-    <div className={`schedule-badge ${urgent ? 'urgent' : ''}`} title={`${next.name} · 錄 ${next.durationMinutes} 分鐘`}>
+    <div
+      className={`schedule-badge ${urgent ? 'urgent' : ''}`}
+      title={t('badge.tooltip', { name: next.name, minutes: next.durationMinutes })}
+    >
       <span className="schedule-badge-icon">⏰</span>
       <span className="schedule-badge-time">{fmtDateTime(next.fireAt)}</span>
       <span className="schedule-badge-delta">（{humanDelta(delta)}）</span>

@@ -1,9 +1,11 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store'
 
 const THUMBNAIL_REFRESH_MS = 5000
 
 export function SourcePicker(): React.JSX.Element {
+  const { t } = useTranslation()
   const {
     displays,
     thumbnails,
@@ -40,23 +42,23 @@ export function SourcePicker(): React.JSX.Element {
   return (
     <div className="panel">
       <div className="panel-title">
-        擷取來源
+        {t('sourcePicker.title')}
         <button className="btn-small" onClick={() => refreshThumbnails()}>
           ↻
         </button>
       </div>
       <div className="mode-tabs">
         <button className={mode === 'display' ? 'active' : ''} onClick={() => setMode('display')}>
-          單一螢幕
+          {t('sourcePicker.modeDisplay')}
         </button>
         <button
           className={mode === 'virtual-desktop' ? 'active' : ''}
           onClick={() => setMode('virtual-desktop')}
         >
-          整個虛擬桌面
+          {t('sourcePicker.modeVirtual')}
         </button>
         <button className={mode === 'region' ? 'active' : ''} onClick={() => setMode('region')}>
-          區域
+          {t('sourcePicker.modeRegion')}
         </button>
       </div>
 
@@ -71,7 +73,7 @@ export function SourcePicker(): React.JSX.Element {
               {thumbForDisplay(d.displayId) ? (
                 <img src={thumbForDisplay(d.displayId)} alt={d.label} />
               ) : (
-                <div className="thumb-placeholder">no preview</div>
+                <div className="thumb-placeholder">{t('sourcePicker.noPreview')}</div>
               )}
               <div className="display-label">{d.label}</div>
               <div className="display-meta">
@@ -84,7 +86,7 @@ export function SourcePicker(): React.JSX.Element {
 
       {mode === 'virtual-desktop' && (
         <div className="virtual-info">
-          整個虛擬桌面（{displays.length} 顆螢幕水平拼接）
+          {t('sourcePicker.virtualHint', { count: displays.length })}
           <ul>
             {displays.map((d) => (
               <li key={d.displayId}>{d.label}</li>
@@ -96,7 +98,7 @@ export function SourcePicker(): React.JSX.Element {
       {mode === 'region' && (
         <div className="region-info">
           <button className="btn btn-record" onClick={onPickRegion}>
-            🎯 選取錄影範圍
+            {t('sourcePicker.pickRegion')}
           </button>
           {region && regionDisplay ? (
             <div className="region-summary">
@@ -107,7 +109,7 @@ export function SourcePicker(): React.JSX.Element {
                 {region.width} × {region.height} @ ({region.offsetX}, {region.offsetY})
               </div>
               <button className="btn-small" onClick={() => setRegion(null)}>
-                清除選擇
+                {t('sourcePicker.clearSelection')}
               </button>
             </div>
           ) : region ? (
@@ -116,11 +118,11 @@ export function SourcePicker(): React.JSX.Element {
                 {region.width} × {region.height} @ ({region.offsetX}, {region.offsetY}) (display id {region.displayId})
               </div>
               <button className="btn-small" onClick={() => setRegion(null)}>
-                清除選擇
+                {t('sourcePicker.clearSelection')}
               </button>
             </div>
           ) : (
-            <div className="display-meta">尚未選取，點上方按鈕開始拖框</div>
+            <div className="display-meta">{t('sourcePicker.regionEmpty')}</div>
           )}
         </div>
       )}

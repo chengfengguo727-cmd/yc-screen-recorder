@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { setLanguage, type UILang } from './i18n'
 import type {
   DisplayMapping,
   DshowDevice,
@@ -191,6 +192,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       whisperLanguage: prefs.whisperLanguage,
       whisperQueueSeconds: prefs.whisperQueueSeconds
     })
+    // Apply UI language to i18next
+    if (prefs.uiLanguage === 'en' || prefs.uiLanguage === 'zh-TW') {
+      setLanguage(prefs.uiLanguage as UILang)
+    }
   },
   refresh: async (): Promise<void> => {
     const [displays, thumbnails, encoders, state, recordings] = await Promise.all([

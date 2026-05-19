@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store'
 import { audioManager } from '../audio/manager'
 import type { AudioTrackConfig, TranscriptArgs, WebcamArgs } from '../../../preload'
@@ -23,6 +24,7 @@ async function doScreenshot(displayId: number | null, refreshRecordings: () => P
 }
 
 export function RecordControls(): React.JSX.Element {
+  const { t } = useTranslation()
   const {
     session,
     mode,
@@ -77,11 +79,11 @@ export function RecordControls(): React.JSX.Element {
 
   const onStart = async (): Promise<void> => {
     if (mode === 'display' && selectedDisplayId == null) {
-      alert('請先選擇要錄製的螢幕')
+      alert(t('recordControls.needDisplay'))
       return
     }
     if (mode === 'region' && !region) {
-      alert('請先選取錄影範圍')
+      alert(t('recordControls.needRegion'))
       return
     }
     setBusy(true)
@@ -142,7 +144,7 @@ export function RecordControls(): React.JSX.Element {
       })
     } catch (e) {
       audioManager.stopAll()
-      alert(`開始錄影失敗：${(e as Error).message}`)
+      alert(t('recordControls.startFailed', { message: (e as Error).message }))
     } finally {
       setBusy(false)
     }
@@ -228,21 +230,24 @@ export function RecordControls(): React.JSX.Element {
     return off
   })
 
-  const partTag = session.partCount && session.partCount > 1 ? ` (Part ${session.partCount})` : ''
+  const partTag =
+    session.partCount && session.partCount > 1
+      ? ` (${t('recordControls.partLabel', { n: session.partCount })})`
+      : ''
   const statusText =
     session.status === 'recording'
-      ? `錄影中 ${formatDuration(duration)}${partTag}`
+      ? `${t('status.recording')} ${formatDuration(duration)}${partTag}`
       : session.status === 'paused'
-        ? `已暫停 ${formatDuration(duration)}${partTag}`
+        ? `${t('status.paused')} ${formatDuration(duration)}${partTag}`
         : session.status === 'starting'
-          ? '啟動中…'
+          ? t('status.starting')
           : session.status === 'stopping'
-            ? '停止中…'
+            ? t('status.stopping')
             : session.status === 'finalizing'
-              ? '合併檔案中…'
+              ? t('status.finalizing')
               : session.status === 'error'
-                ? `錯誤：${session.error ?? '未知'}`
-                : '待機'
+                ? `${t('status.error')}: ${session.error ?? t('common.unknown')}`
+                : t('status.idle')
 
   return (
     <div className="record-bar">
@@ -252,23 +257,38 @@ export function RecordControls(): React.JSX.Element {
         className="btn btn-snap"
         disabled={isActive || selectedDisplayId == null}
         onClick={() => doScreenshot(selectedDisplayId, refreshRecordings)}
-        title="截圖 (Ctrl+Shift+S)"
+        title={t('recordControls.screenshotTooltip')}
       >
         📷
       </button>
       {!isActive && (
-        <button className="btn btn-record" disabled={busy} onClick={onStart} title="開始錄影 (Ctrl+Shift+R)">
-          ● 開始錄影
+        <button
+          className="btn btn-record"
+          disabled={busy}
+          onClick={onStart}
+          title={t('recordControls.startTooltip')}
+        >
+          {t('recordControls.start')}
         </button>
       )}
       {session.status === 'recording' && (
-        <button className="btn btn-pause" disabled={busy} onClick={onPause} title="暫停">
-          ⏸ 暫停
+        <button
+          className="btn btn-pause"
+          disabled={busy}
+          onClick={onPause}
+          title={t('recordControls.pauseTooltip')}
+        >
+          {t('recordControls.pause')}
         </button>
       )}
       {session.status === 'paused' && (
-        <button className="btn btn-record" disabled={busy} onClick={onResume} title="續錄">
-          ▶ 續錄
+        <button
+          className="btn btn-record"
+          disabled={busy}
+          onClick={onResume}
+          title={t('recordControls.resumeTooltip')}
+        >
+          {t('recordControls.resume')}
         </button>
       )}
       {isActive && (
@@ -276,9 +296,9 @@ export function RecordControls(): React.JSX.Element {
           className="btn btn-stop"
           disabled={busy || (session.status !== 'recording' && session.status !== 'paused')}
           onClick={onStop}
-          title="停止 (Ctrl+Shift+R)"
+          title={t('recordControls.stopTooltip')}
         >
-          ■ 停止
+          {t('recordControls.stop')}
         </button>
       )}
     </div>

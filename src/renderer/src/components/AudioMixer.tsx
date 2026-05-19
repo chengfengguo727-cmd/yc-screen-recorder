@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store'
 import { audioManager } from '../audio/manager'
 import { VuMeter } from './VuMeter'
 
 export function AudioMixer(): React.JSX.Element {
+  const { t } = useTranslation()
   const {
     micDevices,
     selectedMicId,
@@ -40,7 +42,7 @@ export function AudioMixer(): React.JSX.Element {
       if (kind === 'mic') setMicAnalyser(analyser)
       else setSystemAnalyser(analyser)
     } catch (e) {
-      alert(`測試 ${kind} 失敗：${(e as Error).message}`)
+      alert(t('audioMixer.testFailed', { kind, message: (e as Error).message }))
       setTesting(null)
     }
   }
@@ -64,7 +66,7 @@ export function AudioMixer(): React.JSX.Element {
 
   return (
     <div className="panel">
-      <div className="panel-title">音訊</div>
+      <div className="panel-title">{t('audioMixer.title')}</div>
 
       <div className="audio-row">
         <label className="checkbox">
@@ -74,7 +76,7 @@ export function AudioMixer(): React.JSX.Element {
             disabled={isRecording}
             onChange={(e) => setSystemEnabled(e.target.checked)}
           />
-          系統音 (loopback)
+          {t('audioMixer.systemAudio')}
         </label>
         <div className="audio-controls">
           <input
@@ -93,11 +95,11 @@ export function AudioMixer(): React.JSX.Element {
           {!isRecording &&
             (testing === 'system' ? (
               <button className="btn-small" onClick={() => stopTest('system')}>
-                停止測試
+                {t('audioMixer.stopTest')}
               </button>
             ) : (
               <button className="btn-small" disabled={!systemEnabled} onClick={() => startTest('system')}>
-                測試
+                {t('audioMixer.test')}
               </button>
             ))}
         </div>
@@ -112,14 +114,14 @@ export function AudioMixer(): React.JSX.Element {
             disabled={isRecording}
             onChange={(e) => setMicEnabled(e.target.checked)}
           />
-          麥克風
+          {t('audioMixer.mic')}
         </label>
         <select
           value={selectedMicId ?? ''}
           disabled={isRecording}
           onChange={(e) => setSelectedMicId(e.target.value || null)}
         >
-          {micDevices.length === 0 && <option value="">（未取得權限）</option>}
+          {micDevices.length === 0 && <option value="">{t('audioMixer.micPermissionDenied')}</option>}
           {micDevices.map((d) => (
             <option key={d.deviceId} value={d.deviceId}>
               {d.label}
@@ -143,11 +145,11 @@ export function AudioMixer(): React.JSX.Element {
           {!isRecording &&
             (testing === 'mic' ? (
               <button className="btn-small" onClick={() => stopTest('mic')}>
-                停止測試
+                {t('audioMixer.stopTest')}
               </button>
             ) : (
               <button className="btn-small" disabled={!micEnabled} onClick={() => startTest('mic')}>
-                測試
+                {t('audioMixer.test')}
               </button>
             ))}
         </div>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store'
 import { SchedulesSection } from './SchedulesSection'
+import { SUPPORTED_LANGS, setLanguage, type UILang } from '../i18n'
 
 interface Props {
   open: boolean
@@ -8,6 +10,7 @@ interface Props {
 }
 
 export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null {
+  const { t } = useTranslation()
   const { preferences, reloadPreferences } = useAppStore()
   const [outputDir, setOutputDir] = useState<string>('')
   const [resolvedDir, setResolvedDir] = useState<string>('')
@@ -15,6 +18,7 @@ export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null
   const [autoLaunch, setAutoLaunch] = useState<boolean>(false)
   const [autoStartRecording, setAutoStartRecording] = useState<boolean>(false)
   const [startMinimized, setStartMinimized] = useState<boolean>(true)
+  const [uiLanguage, setUiLanguage] = useState<UILang>('zh-TW')
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -29,6 +33,7 @@ export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null
       setAutoLaunch(prefs.autoLaunch)
       setAutoStartRecording(prefs.autoStartRecording)
       setStartMinimized(prefs.startMinimized)
+      setUiLanguage((prefs.uiLanguage as UILang) || 'zh-TW')
       setDirty(false)
     })()
   }, [open])
@@ -48,6 +53,12 @@ export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null
     setDirty(true)
   }
 
+  const onLangChange = (code: UILang): void => {
+    setUiLanguage(code)
+    setLanguage(code) // live preview
+    setDirty(true)
+  }
+
   const onSave = async (): Promise<void> => {
     setSaving(true)
     try {
@@ -56,7 +67,8 @@ export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null
         maxRecordingMinutes: maxMinutes,
         autoLaunch,
         autoStartRecording,
-        startMinimized
+        startMinimized,
+        uiLanguage
       })
       await window.api.applyLoginItem()
       const newDir = await window.api.getCurrentOutputDir()
@@ -70,7 +82,7 @@ export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null
   }
 
   const onResetAll = async (): Promise<void> => {
-    if (!confirm('確定要把所有設定還原成預設值嗎？')) return
+    if (!confirm(t('options.resetConfirm'))) return
     await window.api.resetPreferences()
     await reloadPreferences()
     const prefs = await window.api.getPreferences()
@@ -78,6 +90,8 @@ export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null
     setOutputDir(prefs.outputDir ?? '')
     setResolvedDir(current)
     setMaxMinutes(prefs.maxRecordingMinutes)
+    setUiLanguage((prefs.uiLanguage as UILang) || 'zh-TW')
+    setLanguage((prefs.uiLanguage as UILang) || 'zh-TW')
     setDirty(false)
   }
 
@@ -85,37 +99,50 @@ export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <div>設定</div>
+          <div>{t('options.title')}</div>
           <button className="btn-small" onClick={onClose}>
             ✕
           </button>
         </div>
         <div className="modal-body">
           <section className="opt-section">
-            <h3>輸出資料夾</h3>
+            <h3>{t('options.language')}</h3>
+            <div className="opt-row">
+              <select value={uiLanguage} onChange={(e) => onLangChange(e.target.value as UILang)}>
+                {SUPPORTED_LANGS.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </section>
+
+          <section className="opt-section">
+            <h3>{t('options.outputDir')}</h3>
             <div className="opt-row">
               <input
                 type="text"
                 className="opt-text"
                 value={outputDir}
-                placeholder="(使用預設 userData/recordings)"
+                placeholder={t('options.outputDirPlaceholder')}
                 onChange={(e) => {
                   setOutputDir(e.target.value)
                   setDirty(true)
                 }}
               />
               <button className="btn-small" onClick={onPickDir}>
-                瀏覽…
+                {t('options.browse')}
               </button>
               <button className="btn-small" onClick={onResetDir}>
-                使用預設
+                {t('options.useDefault')}
               </button>
             </div>
-            <div className="opt-hint">目前生效路徑：{resolvedDir}</div>
+            <div className="opt-hint">{t('options.currentPath', { path: resolvedDir })}</div>
           </section>
 
           <section className="opt-section">
-            <h3>最大錄影長度</h3>
+            <h3>{t('options.maxRecording')}</h3>
             <div className="opt-row">
               <input
                 type="number"
@@ -128,7 +155,7 @@ export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null
                   setDirty(true)
                 }}
               />
-              <span>分鐘</span>
+              <span>{t('options.minutes')}</span>
               <button
                 className="btn-small"
                 onClick={() => {
@@ -136,7 +163,7 @@ export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null
                   setDirty(true)
                 }}
               >
-                預設 (10 小時)
+                {t('options.defaultTenHour')}
               </button>
               <button
                 className="btn-small"
@@ -145,16 +172,14 @@ export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null
                   setDirty(true)
                 }}
               >
-                不限制
+                {t('options.noLimit')}
               </button>
             </div>
-            <div className="opt-hint">
-              超過後會自動結束本檔，立即接續錄到新檔（檔名以時間戳區分）。設 0 代表不限制。
-            </div>
+            <div className="opt-hint">{t('options.maxRecordingHint')}</div>
           </section>
 
           <section className="opt-section">
-            <h3>啟動行為</h3>
+            <h3>{t('options.startup')}</h3>
             <div className="opt-row">
               <label className="checkbox">
                 <input
@@ -165,7 +190,7 @@ export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null
                     setDirty(true)
                   }}
                 />
-                開機時自動啟動 YC Screen Recorder
+                {t('options.autoLaunch')}
               </label>
             </div>
             <div className="opt-row">
@@ -179,7 +204,7 @@ export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null
                     setDirty(true)
                   }}
                 />
-                自動啟動時直接縮到工作匣（不彈視窗）
+                {t('options.startMinimized')}
               </label>
             </div>
             <div className="opt-row">
@@ -193,11 +218,8 @@ export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null
                     setDirty(true)
                   }}
                 />
-                自動啟動後立即開始錄影（使用主視窗目前的螢幕/音源/編碼設定）
+                {t('options.autoStartRecording')}
               </label>
-            </div>
-            <div className="opt-hint">
-              啟用後會在 Windows 啟動清單註冊本程式。要徹底取消請取消勾選並儲存（會自動清掉註冊）。
             </div>
           </section>
 
@@ -205,23 +227,21 @@ export function OptionsModal({ open, onClose }: Props): React.JSX.Element | null
 
           {preferences && (
             <section className="opt-section">
-              <h3>關於</h3>
-              <div className="opt-hint">
-                版本 v{__APP_VERSION__} · 設定檔：%AppData%\screen-recorder\preferences.json
-              </div>
+              <h3>{t('options.about')}</h3>
+              <div className="opt-hint">{t('options.aboutHint', { version: __APP_VERSION__ })}</div>
             </section>
           )}
         </div>
         <div className="modal-footer">
           <button className="btn-small" onClick={onResetAll}>
-            還原所有設定
+            {t('options.resetAll')}
           </button>
           <div style={{ flex: 1 }} />
           <button className="btn-small" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </button>
           <button className="btn btn-record" disabled={saving} onClick={onSave}>
-            {saving ? '儲存中…' : dirty ? '儲存' : '完成'}
+            {saving ? t('options.saving') : dirty ? t('options.saveBtn') : t('options.doneBtn')}
           </button>
         </div>
       </div>

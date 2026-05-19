@@ -1,6 +1,8 @@
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store'
 
 export function OptionsBar(): React.JSX.Element {
+  const { t } = useTranslation()
   const {
     encoders,
     encoder,
@@ -19,32 +21,32 @@ export function OptionsBar(): React.JSX.Element {
 
   return (
     <div className="panel">
-      <div className="panel-title">編碼選項</div>
+      <div className="panel-title">{t('optionsBar.title')}</div>
       <div className="options-row">
         <label>
-          編碼器
+          {t('optionsBar.encoder')}
           <select value={encoder ?? ''} onChange={(e) => setEncoder(e.target.value)}>
             {encoders?.available.map((e) => (
               <option key={e} value={e}>
                 {e}
-                {e === encoders.preferred ? ' (推薦)' : ''}
+                {e === encoders.preferred ? ` (${t('common.recommended')})` : ''}
               </option>
             ))}
           </select>
         </label>
         <label>
-          畫質模式
+          {t('optionsBar.quality')}
           <select
             value={encoderQuality}
             onChange={(e) => setEncoderQuality(e.target.value as 'speed' | 'balanced' | 'quality')}
           >
-            <option value="speed">速度優先（檔案大，CPU/GPU 最低）</option>
-            <option value="balanced">平衡（推薦）</option>
-            <option value="quality">畫質優先（同 bitrate 下最清楚）</option>
+            <option value="speed">{t('optionsBar.qualitySpeed')}</option>
+            <option value="balanced">{t('optionsBar.qualityBalanced')}</option>
+            <option value="quality">{t('optionsBar.qualityQuality')}</option>
           </select>
         </label>
         <label>
-          FPS
+          {t('optionsBar.fps')}
           <select value={framerate} onChange={(e) => setFramerate(Number(e.target.value))}>
             <option value={10}>10</option>
             <option value={15}>15</option>
@@ -55,29 +57,29 @@ export function OptionsBar(): React.JSX.Element {
           </select>
         </label>
         <label>
-          位元率
+          {t('optionsBar.bitrate')}
           <select value={bitrate} onChange={(e) => setBitrate(e.target.value)}>
-            <option value="200K">0.2 Mbps（極低，僅供文字/簡報）</option>
-            <option value="500K">0.5 Mbps（低）</option>
-            <option value="1M">1 Mbps</option>
-            <option value="3M">3 Mbps</option>
-            <option value="6M">6 Mbps（推薦 720p）</option>
-            <option value="12M">12 Mbps（推薦 1080p）</option>
-            <option value="20M">20 Mbps（高）</option>
-            <option value="40M">40 Mbps（極高 / 4K）</option>
+            <option value="200K">{t('optionsBar.bitrate200K')}</option>
+            <option value="500K">{t('optionsBar.bitrate500K')}</option>
+            <option value="1M">{t('optionsBar.bitrate1M')}</option>
+            <option value="3M">{t('optionsBar.bitrate3M')}</option>
+            <option value="6M">{t('optionsBar.bitrate6M')}</option>
+            <option value="12M">{t('optionsBar.bitrate12M')}</option>
+            <option value="20M">{t('optionsBar.bitrate20M')}</option>
+            <option value="40M">{t('optionsBar.bitrate40M')}</option>
           </select>
         </label>
         <label className="checkbox">
           <input type="checkbox" checked={drawMouse} onChange={(e) => setDrawMouse(e.target.checked)} />
-          顯示游標
+          {t('optionsBar.drawMouse')}
         </label>
-        <label className="checkbox" title="錄影中滑鼠點擊位置會出現黃色圓圈漣漪">
+        <label className="checkbox" title={t('optionsBar.clickHighlightTooltip')}>
           <input
             type="checkbox"
             checked={clickHighlightEnabled}
             onChange={(e) => setClickHighlightEnabled(e.target.checked)}
           />
-          點擊高亮
+          {t('optionsBar.clickHighlight')}
         </label>
       </div>
     </div>

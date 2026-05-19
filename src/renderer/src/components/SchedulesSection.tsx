@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ScheduleEntry, ScheduleType, NextFireInfo } from '../../../preload'
-
-const WEEK_NAMES = ['日', '一', '二', '三', '四', '五', '六']
 
 function randomId(): string {
   return 's_' + Math.random().toString(36).slice(2, 10)
@@ -23,7 +22,6 @@ function fromDatetimeLocal(s: string): number {
   return new Date(s).getTime()
 }
 
-// Renderer-side mirror of main/scheduler.ts:computeNextFire
 function computeNextFire(s: ScheduleEntry, fromMs: number): number | null {
   if (!s.enabled) return null
   if (s.type === 'once') {
@@ -54,48 +52,80 @@ function computeNextFire(s: ScheduleEntry, fromMs: number): number | null {
   return null
 }
 
-function humanDelta(ms: number): string {
-  if (ms < 60_000) return '< 1 分鐘'
-  const totalMin = Math.round(ms / 60_000)
-  if (totalMin < 60) return `${totalMin} 分後`
-  const h = Math.floor(totalMin / 60)
-  const m = totalMin % 60
-  if (h < 24) return m > 0 ? `${h} 小時 ${m} 分後` : `${h} 小時後`
-  const d = Math.floor(h / 24)
-  const hh = h % 24
-  return hh > 0 ? `${d} 天 ${hh} 小時後` : `${d} 天後`
+function useHumanDelta(): (ms: number) => string {
+  const { t } = useTranslation()
+  return (ms: number): string => {
+    if (ms < 60_000) return t('schedule.deltaLessThanMin')
+    const totalMin = Math.round(ms / 60_000)
+    if (totalMin < 60) return t('schedule.deltaMin', { n: totalMin })
+    const h = Math.floor(totalMin / 60)
+    const m = totalMin % 60
+    if (h < 24) return m > 0 ? t('schedule.deltaHourMin', { h, m }) : t('schedule.deltaHour', { h })
+    const d = Math.floor(h / 24)
+    const hh = h % 24
+    return hh > 0 ? t('schedule.deltaDayHour', { d, h: hh }) : t('schedule.deltaDay', { d })
+  }
 }
 
-function summarize(s: ScheduleEntry): string {
-  if (s.type === 'once' && s.fireAt) return `一次性 · ${fmtDateTime(s.fireAt)}`
-  if (s.type === 'daily' && s.hour != null && s.minute != null) {
-    return `每日 ${String(s.hour).padStart(2, '0')}:${String(s.minute).padStart(2, '0')}`
-  }
-  if (s.type === 'weekly' && s.hour != null && s.minute != null) {
-    const days = (s.daysOfWeek ?? []).sort().map((d) => WEEK_NAMES[d]).join('、')
-    return `每週 ${days || '(無)'} ${String(s.hour).padStart(2, '0')}:${String(s.minute).padStart(2, '0')}`
-  }
-  return '(設定不完整)'
+function useWeekNames(): string[] {
+  const { t } = useTranslation()
+  return [
+    t('schedule.weekSun'),
+    t('schedule.weekMon'),
+    t('schedule.weekTue'),
+    t('schedule.weekWed'),
+    t('schedule.weekThu'),
+    t('schedule.weekFri'),
+    t('schedule.weekSat')
+  ]
 }
 
-function entryStatus(s: ScheduleEntry, now: number): string {
-  if (!s.enabled) {
-    if (s.type === 'once' && s.lastFiredAt) return `⏹ 已觸發過 · ${fmtDateTime(s.lastFiredAt)}`
-    return '⏸ 已停用'
+function useSummary(): (s: ScheduleEntry) => string {
+  const { t } = useTranslation()
+  const weekNames = useWeekNames()
+  return (s: ScheduleEntry): string => {
+    if (s.type === 'once' && s.fireAt) return t('schedule.summaryOnce', { at: fmtDateTime(s.fireAt) })
+    if (s.type === 'daily' && s.hour != null && s.minute != null) {
+      const time = `${String(s.hour).padStart(2, '0')}:${String(s.minute).padStart(2, '0')}`
+      return t('schedule.summaryDaily', { time })
+    }
+    if (s.type === 'weekly' && s.hour != null && s.minute != null) {
+      const days =
+        (s.daysOfWeek ?? [])
+          .slice()
+          .sort()
+          .map((d) => weekNames[d])
+          .join(' / ') || `(${t('common.none')})`
+      const time = `${String(s.hour).padStart(2, '0')}:${String(s.minute).padStart(2, '0')}`
+      return t('schedule.summaryWeekly', { days, time })
+    }
+    return t('schedule.summaryIncomplete')
   }
-  const next = computeNextFire(s, now)
-  if (next == null) {
-    if (s.type === 'once') return '⚠ 一次性時間已過'
-    return '⚠ 無未來觸發時間'
-  }
-  return `⏱ 下次：${fmtDateTime(next)}（${humanDelta(next - now)}）`
 }
 
-function newEntry(): ScheduleEntry {
+function useEntryStatus(): (s: ScheduleEntry, now: number) => string {
+  const { t } = useTranslation()
+  const humanDelta = useHumanDelta()
+  return (s: ScheduleEntry, now: number): string => {
+    if (!s.enabled) {
+      if (s.type === 'once' && s.lastFiredAt)
+        return t('schedule.statusFired', { at: fmtDateTime(s.lastFiredAt) })
+      return t('schedule.statusDisabled')
+    }
+    const next = computeNextFire(s, now)
+    if (next == null) {
+      if (s.type === 'once') return t('schedule.statusOverdue')
+      return t('schedule.statusNoFuture')
+    }
+    return t('schedule.statusNext', { at: fmtDateTime(next), delta: humanDelta(next - now) })
+  }
+}
+
+function newEntry(name: string): ScheduleEntry {
   const now = new Date()
   return {
     id: randomId(),
-    name: '排程錄影',
+    name,
     enabled: true,
     type: 'daily',
     hour: now.getHours(),
@@ -114,11 +144,13 @@ interface EditorProps {
 }
 
 function ScheduleEditor({ entry, onChange, onDelete, onClose }: EditorProps): React.JSX.Element {
+  const { t } = useTranslation()
+  const weekNames = useWeekNames()
   return (
     <div className="schedule-editor">
       <div className="opt-row">
         <label style={{ flex: 1 }}>
-          名稱
+          {t('schedule.name')}
           <input
             type="text"
             className="opt-text"
@@ -129,19 +161,19 @@ function ScheduleEditor({ entry, onChange, onDelete, onClose }: EditorProps): Re
       </div>
       <div className="opt-row">
         <label>
-          類型
+          {t('schedule.type')}
           <select
             value={entry.type}
             onChange={(e) => onChange({ ...entry, type: e.target.value as ScheduleType })}
           >
-            <option value="once">一次性</option>
-            <option value="daily">每日</option>
-            <option value="weekly">每週</option>
+            <option value="once">{t('schedule.typeOnce')}</option>
+            <option value="daily">{t('schedule.typeDaily')}</option>
+            <option value="weekly">{t('schedule.typeWeekly')}</option>
           </select>
         </label>
         {entry.type === 'once' && (
           <label style={{ flex: 1 }}>
-            日期時間
+            {t('schedule.dateTime')}
             <input
               type="datetime-local"
               className="opt-text"
@@ -153,7 +185,7 @@ function ScheduleEditor({ entry, onChange, onDelete, onClose }: EditorProps): Re
         {(entry.type === 'daily' || entry.type === 'weekly') && (
           <>
             <label>
-              時
+              {t('schedule.hour')}
               <input
                 type="number"
                 className="opt-text opt-num"
@@ -166,7 +198,7 @@ function ScheduleEditor({ entry, onChange, onDelete, onClose }: EditorProps): Re
               />
             </label>
             <label>
-              分
+              {t('schedule.minute')}
               <input
                 type="number"
                 className="opt-text opt-num"
@@ -183,8 +215,8 @@ function ScheduleEditor({ entry, onChange, onDelete, onClose }: EditorProps): Re
       </div>
       {entry.type === 'weekly' && (
         <div className="opt-row">
-          <span style={{ fontSize: 12, color: '#a9b0bc' }}>星期：</span>
-          {WEEK_NAMES.map((name, idx) => {
+          <span style={{ fontSize: 12, color: '#a9b0bc' }}>{t('schedule.weekdays')}</span>
+          {weekNames.map((name, idx) => {
             const checked = (entry.daysOfWeek ?? []).includes(idx)
             return (
               <label key={idx} className="checkbox" style={{ marginRight: 6 }}>
@@ -206,7 +238,7 @@ function ScheduleEditor({ entry, onChange, onDelete, onClose }: EditorProps): Re
       )}
       <div className="opt-row">
         <label>
-          錄影長度
+          {t('schedule.durationLabel')}
           <input
             type="number"
             className="opt-text opt-num"
@@ -218,13 +250,13 @@ function ScheduleEditor({ entry, onChange, onDelete, onClose }: EditorProps): Re
             }
           />
         </label>
-        <span>分鐘</span>
+        <span>{t('options.minutes')}</span>
         <div style={{ flex: 1 }} />
         <button className="btn-small" onClick={onDelete}>
-          🗑 刪除
+          {t('schedule.delete')}
         </button>
         <button className="btn-small" onClick={onClose}>
-          ✓ 完成
+          {t('schedule.finishEdit')}
         </button>
       </div>
     </div>
@@ -232,6 +264,10 @@ function ScheduleEditor({ entry, onChange, onDelete, onClose }: EditorProps): Re
 }
 
 export function SchedulesSection(): React.JSX.Element {
+  const { t } = useTranslation()
+  const humanDelta = useHumanDelta()
+  const summarize = useSummary()
+  const entryStatus = useEntryStatus()
   const [schedules, setSchedules] = useState<ScheduleEntry[]>([])
   const [next, setNext] = useState<NextFireInfo | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -262,7 +298,7 @@ export function SchedulesSection(): React.JSX.Element {
   }
 
   const onAdd = async (): Promise<void> => {
-    const e = newEntry()
+    const e = newEntry(t('schedule.namePlaceholder'))
     await persist([...schedules, e])
     setEditingId(e.id)
   }
@@ -276,25 +312,25 @@ export function SchedulesSection(): React.JSX.Element {
   }
 
   const onDelete = async (id: string): Promise<void> => {
-    if (!confirm('刪除這個排程？')) return
+    if (!confirm(t('schedule.deleteConfirm'))) return
     await persist(schedules.filter((s) => s.id !== id))
     if (editingId === id) setEditingId(null)
   }
 
   return (
     <section className="opt-section">
-      <h3>排程錄影</h3>
+      <h3>{t('schedule.title')}</h3>
       {next ? (
         <div className="opt-hint">
-          下一次觸發：<strong>{fmtDateTime(next.fireAt)}</strong> · {next.name} · {next.durationMinutes} 分鐘（{humanDelta(next.fireAt - now)}）
+          {t('schedule.nextFire')}
+          <strong>{fmtDateTime(next.fireAt)}</strong> · {next.name} · {next.durationMinutes}{' '}
+          {t('options.minutes')}（{humanDelta(next.fireAt - now)}）
         </div>
-      ) : schedules.length > 0 ? (
-        <div className="opt-hint">所有排程都已過期或已停用</div>
       ) : (
-        <div className="opt-hint">目前無排程</div>
+        <div className="opt-hint">{t('schedule.noSchedule')}</div>
       )}
       <div className="opt-hint" style={{ marginBottom: 8 }}>
-        提示：排程觸發時應用程式必須是開啟狀態（可以最小化）。錄影使用主視窗目前的螢幕/音源/編碼器設定。
+        {t('schedule.appOpenHint')}
       </div>
       <ul className="schedules">
         {schedules.map((s) => (
@@ -310,7 +346,7 @@ export function SchedulesSection(): React.JSX.Element {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="rec-name">{s.name}</div>
                 <div className="rec-meta">
-                  {summarize(s)} · 錄 {s.durationMinutes} 分
+                  {summarize(s)} · {s.durationMinutes} {t('options.minutes')}
                 </div>
                 <div className="rec-meta">{entryStatus(s, now)}</div>
               </div>
@@ -318,7 +354,7 @@ export function SchedulesSection(): React.JSX.Element {
                 className="btn-small"
                 onClick={() => setEditingId(editingId === s.id ? null : s.id)}
               >
-                {editingId === s.id ? '收起' : '編輯'}
+                {editingId === s.id ? t('schedule.collapse') : t('schedule.expand')}
               </button>
             </div>
             {editingId === s.id && (
@@ -333,7 +369,7 @@ export function SchedulesSection(): React.JSX.Element {
         ))}
       </ul>
       <button className="btn-small" onClick={onAdd}>
-        + 新增排程
+        {t('schedule.addNew')}
       </button>
     </section>
   )

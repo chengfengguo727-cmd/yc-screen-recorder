@@ -1,15 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from '../store'
 import type { PipPosition } from '../../../preload'
 
-const POSITIONS: { value: PipPosition; label: string }[] = [
-  { value: 'tl', label: '左上' },
-  { value: 'tr', label: '右上' },
-  { value: 'bl', label: '左下' },
-  { value: 'br', label: '右下' }
-]
-
 export function WebcamPanel(): React.JSX.Element {
+  const { t } = useTranslation()
   const {
     webcamDevices,
     selectedWebcamName,
@@ -25,6 +20,13 @@ export function WebcamPanel(): React.JSX.Element {
     setWebcamFramerate,
     session
   } = useAppStore()
+
+  const positions: { value: PipPosition; label: string }[] = [
+    { value: 'tl', label: t('webcam.posTL') },
+    { value: 'tr', label: t('webcam.posTR') },
+    { value: 'bl', label: t('webcam.posBL') },
+    { value: 'br', label: t('webcam.posBR') }
+  ]
 
   const isRecording = session.status === 'recording' || session.status === 'starting'
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -58,8 +60,10 @@ export function WebcamPanel(): React.JSX.Element {
         videoDevs.find((d) => target.includes(norm(d.label)))
       if (!match) {
         alert(
-          `找不到符合 dshow 名稱「${selectedWebcamName}」的 Chromium 鏡頭。\n` +
-            `Chromium 看到的鏡頭：${videoDevs.map((d) => d.label).join(', ') || '(無)'}`
+          t('webcam.notFound', {
+            name: selectedWebcamName,
+            labels: videoDevs.map((d) => d.label).join(', ') || `(${t('common.none')})`
+          })
         )
         return
       }
@@ -71,7 +75,7 @@ export function WebcamPanel(): React.JSX.Element {
       if (videoRef.current) videoRef.current.srcObject = stream
       setPreviewing(true)
     } catch (e) {
-      alert(`預覽失敗：${(e as Error).message}`)
+      alert(t('webcam.previewFailed', { message: (e as Error).message }))
     }
   }
 
@@ -85,7 +89,7 @@ export function WebcamPanel(): React.JSX.Element {
   return (
     <div className="panel">
       <div className="panel-title">
-        Webcam (PiP)
+        {t('webcam.title')}
         <button className="btn-small" onClick={() => refreshWebcams()}>↻</button>
       </div>
       <div className="webcam-row">
@@ -96,14 +100,14 @@ export function WebcamPanel(): React.JSX.Element {
             disabled={isRecording}
             onChange={(e) => setWebcamEnabled(e.target.checked)}
           />
-          啟用
+          {t('webcam.enable')}
         </label>
         <select
           value={selectedWebcamName ?? ''}
           disabled={isRecording}
           onChange={(e) => setSelectedWebcamName(e.target.value || null)}
         >
-          {webcamDevices.length === 0 && <option value="">（找不到 dshow 視訊裝置）</option>}
+          {webcamDevices.length === 0 && <option value="">{t('webcam.noDevice')}</option>}
           {webcamDevices.map((d) => (
             <option key={d.name} value={d.name}>
               {d.name}
@@ -113,13 +117,13 @@ export function WebcamPanel(): React.JSX.Element {
       </div>
       <div className="webcam-row">
         <label>
-          位置
+          {t('webcam.position')}
           <select
             value={webcamPosition}
             disabled={isRecording}
             onChange={(e) => setWebcamPosition(e.target.value as PipPosition)}
           >
-            {POSITIONS.map((p) => (
+            {positions.map((p) => (
               <option key={p.value} value={p.value}>
                 {p.label}
               </option>
@@ -127,7 +131,7 @@ export function WebcamPanel(): React.JSX.Element {
           </select>
         </label>
         <label>
-          大小 {Math.round(webcamWidthRatio * 100)}%
+          {t('webcam.size')} {Math.round(webcamWidthRatio * 100)}%
           <input
             type="range"
             min={0.1}
@@ -139,7 +143,7 @@ export function WebcamPanel(): React.JSX.Element {
           />
         </label>
         <label>
-          FPS
+          {t('webcam.fps')}
           <select
             value={webcamFramerate}
             disabled={isRecording}
@@ -156,12 +160,12 @@ export function WebcamPanel(): React.JSX.Element {
           <>
             <video ref={videoRef} autoPlay muted />
             <button className="btn-small" onClick={stopPreview}>
-              關閉預覽
+              {t('webcam.closePreview')}
             </button>
           </>
         ) : (
           <button className="btn-small" disabled={!selectedWebcamName} onClick={startPreview}>
-            預覽鏡頭
+            {t('webcam.preview')}
           </button>
         )}
       </div>

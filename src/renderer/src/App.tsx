@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAppStore } from './store'
 import { SourcePicker } from './components/SourcePicker'
 import { OptionsBar } from './components/OptionsBar'
@@ -22,6 +23,7 @@ function App(): React.JSX.Element {
 }
 
 function MainApp(): React.JSX.Element {
+  const { t } = useTranslation()
   const {
     refresh,
     reloadPreferences,
@@ -84,10 +86,10 @@ function MainApp(): React.JSX.Element {
         </div>
         <NextScheduleBadge />
         <RecordControls />
-        <button className="btn-small" onClick={() => setHelpOpen(true)} title="說明">
+        <button className="btn-small" onClick={() => setHelpOpen(true)} title={t('header.titleHelp')}>
           ?
         </button>
-        <button className="btn-small" onClick={() => setOptionsOpen(true)} title="設定">
+        <button className="btn-small" onClick={() => setOptionsOpen(true)} title={t('header.titleOptions')}>
           ⚙
         </button>
       </header>

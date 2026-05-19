@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface Rect {
   x: number
@@ -14,6 +15,7 @@ function getDisplayIdFromHash(): number {
 }
 
 export function RegionPicker(): React.JSX.Element {
+  const { t } = useTranslation()
   const displayId = useRef<number>(getDisplayIdFromHash())
   const [bg, setBg] = useState<string | null>(null)
   const [start, setStart] = useState<{ x: number; y: number } | null>(null)
@@ -83,7 +85,8 @@ export function RegionPicker(): React.JSX.Element {
       {bg && <img className="region-picker-bg" src={bg} alt="" draggable={false} />}
       {!rect && <div className="region-dim-full" />}
       <div className="region-hint">
-        拖曳選取錄影範圍 · Esc 取消{rect && rect.w > 4 ? ' · Enter 確認' : ''}
+        {t('region.hint')}
+        {rect && rect.w > 4 ? t('region.hintEnter') : ''}
       </div>
       {rect && (
         <div
