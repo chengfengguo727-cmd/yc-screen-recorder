@@ -193,6 +193,26 @@ body {
   background: #2f3a55;
 }
 
+.output-override {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #8e95a3;
+  cursor: default;
+}
+
+.output-override select {
+  background: #1f2127;
+  color: #e4e6eb;
+  border: 1px solid #3a3e48;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
 .display-label {
   font-size: 13px;
   font-weight: 600;
@@ -1006,4 +1026,14 @@ body {
   white-space: pre;
   user-select: text;
   -webkit-user-select: text;
+}
+
+.fps-hint {
+  margin-top: 4px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #2a3140;
+  color: #aeb6c4;
+  font-size: 11px;
+  line-height: 1.35;
 }

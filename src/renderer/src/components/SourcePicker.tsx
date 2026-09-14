@@ -14,8 +14,11 @@ export function SourcePicker(): React.JSX.Element {
     region,
     setMode,
     setSelectedDisplayId,
+    setOutputOverride,
+    redetectDisplays,
     setRegion,
     refreshThumbnails,
+    framerate,
     session
   } = useAppStore()
 
@@ -38,6 +41,9 @@ export function SourcePicker(): React.JSX.Element {
   }
 
   const regionDisplay = region ? displays.find((d) => d.displayId === region.displayId) : null
+  // ddagrab indexes outputs 0..N-1; offer at least as many slots as displays
+  const outputCount = Math.max(displays.length, ...displays.map((d) => d.outputIdx + 1), 1)
+  const outputChoices = Array.from({ length: outputCount }, (_, i) => i)
 
   return (
     <div className="panel">
@@ -45,6 +51,13 @@ export function SourcePicker(): React.JSX.Element {
         {t('sourcePicker.title')}
         <button className="btn-small" onClick={() => refreshThumbnails()}>
           ↻
+        </button>
+        <button
+          className="btn-small"
+          onClick={() => void redetectDisplays()}
+          title={t('sourcePicker.redetectTip')}
+        >
+          {t('sourcePicker.redetect')}
         </button>
       </div>
       <div className="mode-tabs">
@@ -65,10 +78,15 @@ export function SourcePicker(): React.JSX.Element {
       {mode === 'display' && (
         <div className="display-grid">
           {displays.map((d) => (
-            <button
+            <div
               key={d.displayId}
+              role="button"
+              tabIndex={0}
               className={`display-card ${selectedDisplayId === d.displayId ? 'selected' : ''}`}
               onClick={() => setSelectedDisplayId(d.displayId)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') setSelectedDisplayId(d.displayId)
+              }}
             >
               {thumbForDisplay(d.displayId) ? (
                 <img src={thumbForDisplay(d.displayId)} alt={d.label} />
@@ -77,9 +95,43 @@ export function SourcePicker(): React.JSX.Element {
               )}
               <div className="display-label">{d.label}</div>
               <div className="display-meta">
-                output_idx={d.outputIdx} · ({d.bounds.x},{d.bounds.y})
+                ({d.bounds.x},{d.bounds.y}) · {d.refreshHz}Hz
               </div>
-            </button>
+              {d.refreshHz > framerate && selectedDisplayId === d.displayId && (
+                <div className="fps-hint" title={t('sourcePicker.fpsHintTip')}>
+                  {t('sourcePicker.fpsHint', { fps: framerate, hz: d.refreshHz })}
+                </div>
+              )}
+              <label
+                className="output-override"
+                onClick={(e) => e.stopPropagation()}
+                title={t('sourcePicker.outputIdxHint')}
+              >
+                output_idx
+                <select
+                  value={d.outputIdx}
+                  onChange={(e) => void setOutputOverride(d.displayId, Number(e.target.value))}
+                >
+                  {outputChoices.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+                {d.manual && (
+                  <button
+                    className="btn-small"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void setOutputOverride(d.displayId, null)
+                    }}
+                    title={t('sourcePicker.outputIdxAutoTip')}
+                  >
+                    {t('sourcePicker.outputIdxAuto')}
+                  </button>
+                )}
+              </label>
+            </div>
           ))}
         </div>
       )}

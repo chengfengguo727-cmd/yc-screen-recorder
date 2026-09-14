@@ -2,11 +2,11 @@ import { BrowserWindow, ipcMain, desktopCapturer, dialog, shell } from 'electron
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { join } from 'path'
-import { readdir, stat, mkdir } from 'fs/promises'
+import { readdir, stat, mkdir, rm } from 'fs/promises'
 import { existsSync } from 'fs'
 
 const execFileAsync = promisify(execFile)
-import { probeEncoders, VideoEncoder } from './recorder/encoder-probe'
+import { probeEncoders, probeD3d11Direct, VideoEncoder } from './recorder/encoder-probe'
 import { buildDisplayMap, virtualDesktopBounds, DisplayMapping } from './recorder/display-map'
 import { session } from './recorder/session'
 import { SourceMode, PipPosition, TranscriptConfig } from './recorder/ffmpeg-args'
@@ -68,6 +68,10 @@ function timestamp(): string {
 async function buildAndStartSession(args: StartArgs, outputPath: string): Promise<void> {
   const maps = await buildDisplayMap()
   const encs = await probeEncoders()
+  // Cached after the first run; decides whether ffmpeg can hand ddagrab's
+  // D3D11 frames straight to NVENC instead of round-tripping through system
+  // memory (see ffmpeg-args.ts gpuDirect).
+  await probeD3d11Direct()
   const encoder = args.encoder ?? encs.preferred
 
   let source: SourceMode
@@ -76,6 +80,7 @@ async function buildAndStartSession(args: StartArgs, outputPath: string): Promis
     source = {
       kind: 'display',
       outputIdx: m.outputIdx,
+      refreshHz: m.refreshHz,
       drawMouse: args.drawMouse,
       framerate: args.framerate
     }
@@ -88,6 +93,7 @@ async function buildAndStartSession(args: StartArgs, outputPath: string): Promis
       offsetY: args.region.offsetY,
       width: args.region.width,
       height: args.region.height,
+      refreshHz: m.refreshHz,
       drawMouse: args.drawMouse,
       framerate: args.framerate
     }
@@ -133,17 +139,37 @@ async function buildAndStartSession(args: StartArgs, outputPath: string): Promis
 
 // Tracks last successful start args so auto-split can restart with same config
 let lastStartArgs: StartArgs | null = null
+// Output of the recording an auto-split started, while that recording runs.
+let continuationOutput: string | null = null
+// A continuation stopped sooner than this is only the tail end of the split.
+const MIN_CONTINUATION_MS = 3000
 
 export function registerIpc(getWindow: () => BrowserWindow | null): void {
   session.on('state', (s) => getWindow()?.webContents.send('recorder:state', s))
   session.on('log', (l) => getWindow()?.webContents.send('recorder:log', l))
   session.on('finished', async (r) => {
+    if (!r?.autoSplit && continuationOutput) {
+      continuationOutput = null
+      // Stopping just after an auto-split used to leave an extra one-second
+      // recording that only showed the final frame; that tail isn't worth keeping.
+      if (r?.outputPath && r.durationMs < MIN_CONTINUATION_MS) {
+        await rm(r.outputPath, { force: true, maxRetries: 5, retryDelay: 200 }).catch(() => {})
+        if (r.transcriptPath) await rm(r.transcriptPath, { force: true }).catch(() => {})
+        getWindow()?.webContents.send(
+          'recorder:log',
+          `[auto-split] discarded the ${r.durationMs}ms recorded after the split`
+        )
+      }
+    }
     getWindow()?.webContents.send('recorder:finished', r)
     if (r?.autoSplit && lastStartArgs) {
       try {
         const nextOutput = join(getRecordingsDir(), `rec-${timestamp()}.mp4`)
         await buildAndStartSession(lastStartArgs, nextOutput)
+        continuationOutput = nextOutput
         getWindow()?.webContents.send('recorder:auto-split', { next: nextOutput })
+        // Stop was pressed while the continuation was still starting up.
+        if (!lastStartArgs) await session.stop()
       } catch (e) {
         getWindow()?.webContents.send('recorder:log', `[auto-split] failed: ${(e as Error).message}`)
         lastStartArgs = null
@@ -154,7 +180,24 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   })
   session.on('transcript', (seg) => getWindow()?.webContents.send('recorder:transcript', seg))
 
-  ipcMain.handle('recorder:displays', async () => buildDisplayMap())
+  ipcMain.handle('recorder:displays', async (_evt, force?: boolean) =>
+    buildDisplayMap(force === true)
+  )
+
+  // Manual display -> ddagrab output override. Auto-detection compares
+  // screen thumbnails, which can still guess wrong when two monitors show
+  // near-identical content, so the user can pin the mapping.
+  ipcMain.handle(
+    'recorder:set-output-override',
+    async (_evt, displayId: number, outputIdx: number | null) => {
+      const prefs = getPreferences()
+      const next = { ...(prefs.get('displayOutputOverrides') ?? {}) }
+      if (outputIdx === null) delete next[String(displayId)]
+      else next[String(displayId)] = outputIdx
+      prefs.set({ displayOutputOverrides: next })
+      return buildDisplayMap(true)
+    }
+  )
 
   ipcMain.handle('recorder:encoders', async () => probeEncoders())
 
@@ -177,6 +220,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle('recorder:start', async (_evt, args: StartArgs) => {
     const outputPath = join(getRecordingsDir(), `rec-${timestamp()}.mp4`)
     lastStartArgs = args
+    continuationOutput = null
     await buildAndStartSession(args, outputPath)
     const transcriptPath = args.transcript ? outputPath.replace(/\.mp4$/i, '.srt') : null
     return { outputPath, transcriptPath }

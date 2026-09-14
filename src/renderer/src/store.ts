@@ -96,6 +96,8 @@ interface AppState {
   refreshMicDevices: () => Promise<void>
   refreshWebcams: () => Promise<void>
   refreshThumbnails: () => Promise<void>
+  redetectDisplays: () => Promise<void>
+  setOutputOverride: (displayId: number, outputIdx: number | null) => Promise<void>
   reloadPreferences: () => Promise<void>
   setMode: (m: Mode) => void
   setSelectedDisplayId: (id: number) => void
@@ -219,6 +221,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   refreshRecordings: async (): Promise<void> => {
     const recordings = await window.api.listRecordings()
     set({ recordings })
+  },
+  redetectDisplays: async (): Promise<void> => {
+    const displays = await window.api.listDisplays(true)
+    set({ displays })
+  },
+  setOutputOverride: async (displayId, outputIdx): Promise<void> => {
+    const displays = await window.api.setOutputOverride(displayId, outputIdx)
+    set({ displays })
   },
   refreshThumbnails: async (): Promise<void> => {
     try {

@@ -178,7 +178,10 @@ export class RecordingSession extends EventEmitter {
     this.pipes.clear()
     const audioInputs: AudioInput[] = []
     for (const a of input.audio) {
-      const pipe = await createAudioPipe(`record-${a.kind}-${partIndex}`)
+      const pipe = await createAudioPipe(`record-${a.kind}-${partIndex}`, {
+        sampleRate: a.sampleRate,
+        channels: a.channels
+      })
       this.pipes.set(a.kind, pipe)
       audioInputs.push({
         kind: a.kind,
@@ -194,7 +197,10 @@ export class RecordingSession extends EventEmitter {
     const whisperAudioInputs: AudioInput[] = []
     if (input.transcript && input.audio.length > 0 && srtPath) {
       for (const a of input.audio) {
-        const pipe = await createAudioPipe(`whisper-${a.kind}-${partIndex}`)
+        const pipe = await createAudioPipe(`whisper-${a.kind}-${partIndex}`, {
+          sampleRate: a.sampleRate,
+          channels: a.channels
+        })
         this.whisperPipes.set(a.kind, pipe)
         whisperAudioInputs.push({
           kind: a.kind,
@@ -281,6 +287,14 @@ export class RecordingSession extends EventEmitter {
       this.proc = null
       this.releasePowerSaveBlocker()
       stopClickHighlight()
+      for (const [kind, pipe] of this.pipes) {
+        const { filledMs, droppedMs } = pipe.stats()
+        if (filledMs > 0 || droppedMs > 0) {
+          this.pushLog(
+            `[audio:${kind}] timeline guard: padded ${filledMs}ms, discarded ${droppedMs}ms`
+          )
+        }
+      }
       void this.closePipes()
       this.transcriptWatcher?.stop()
       this.transcriptWatcher = null

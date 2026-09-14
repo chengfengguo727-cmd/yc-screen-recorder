@@ -60,6 +60,51 @@ export async function probeEncoders(force = false): Promise<EncoderCapabilities>
   return cached
 }
 
+// Whether ddagrab's D3D11 frames can be fed straight into h264_nvenc without
+// a hwdownload round-trip. When available this cuts ffmpeg's CPU cost by ~75%
+// and removes ~250 MB/s of PCIe traffic at 1080p30, which is what keeps long
+// recordings from falling behind and freezing. Not all driver/GPU combos
+// support it, so it is probed once and falls back to the CPU path.
+let d3d11DirectOk: boolean | null = null
+
+export function isD3d11DirectAvailable(): boolean {
+  return d3d11DirectOk === true
+}
+
+export function probeD3d11Direct(force = false): Promise<boolean> {
+  if (d3d11DirectOk !== null && !force) return Promise.resolve(d3d11DirectOk)
+  return new Promise((resolve) => {
+    execFile(
+      getFFmpegPath(),
+      [
+        '-hide_banner',
+        '-loglevel',
+        'error',
+        '-f',
+        'lavfi',
+        '-i',
+        'ddagrab=output_idx=0:framerate=30',
+        '-frames:v',
+        '3',
+        '-filter_complex',
+        '[0:v]null[v]',
+        '-map',
+        '[v]',
+        '-c:v',
+        'h264_nvenc',
+        '-f',
+        'null',
+        '-'
+      ],
+      { timeout: 10000 },
+      (err) => {
+        d3d11DirectOk = !err
+        resolve(d3d11DirectOk)
+      }
+    )
+  })
+}
+
 function bitrateToKbps(b: string): number {
   const m = /^(\d+(?:\.\d+)?)\s*([KM]?)$/i.exec(b.trim())
   if (!m) return 6000

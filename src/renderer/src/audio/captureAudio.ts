@@ -1,36 +1,21 @@
+import pcmCaptureWorkletUrl from './pcm-capture.worklet.js?url&no-inline'
+
 export interface AudioCapture {
   kind: 'system' | 'mic'
   stream: MediaStream
   context: AudioContext
   gain: GainNode
   analyser: AnalyserNode
-  processor: ScriptProcessorNode
+  processor: AudioWorkletNode
   channels: number
   sampleRate: number
   setVolume: (v: number) => void
   stop: () => void
 }
 
-function float32ToInt16(buffer: Float32Array): Int16Array {
-  const out = new Int16Array(buffer.length)
-  for (let i = 0; i < buffer.length; i++) {
-    const s = Math.max(-1, Math.min(1, buffer[i]))
-    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff
-  }
-  return out
-}
-
-function interleave(channels: Float32Array[]): Float32Array {
-  if (channels.length === 1) return channels[0]
-  const length = channels[0].length
-  const out = new Float32Array(length * channels.length)
-  for (let i = 0; i < length; i++) {
-    for (let c = 0; c < channels.length; c++) {
-      out[i * channels.length + c] = channels[c][i]
-    }
-  }
-  return out
-}
+// Audio per chunk sent to the main process. The old 4096-frame chunks arrived
+// as 85ms lumps; small chunks keep the audio stream flowing evenly.
+const CHUNK_SECONDS = 0.02
 
 async function getMicStream(deviceId?: string): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({
@@ -47,7 +32,10 @@ async function getMicStream(deviceId?: string): Promise<MediaStream> {
 async function getSystemStream(): Promise<MediaStream> {
   const stream = await navigator.mediaDevices.getDisplayMedia({
     video: true,
-    audio: true
+    // Capture system sound as-is. Chromium otherwise applies voice-call
+    // processing (echo cancellation, noise suppression, auto gain) meant for
+    // microphones, which muddies music and video audio.
+    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
   })
   stream.getVideoTracks().forEach((t) => {
     t.stop()
@@ -73,14 +61,18 @@ export async function startAudioCapture(
   const analyser = context.createAnalyser()
   analyser.fftSize = 1024
 
-  const bufferSize = 4096
-  const processor = context.createScriptProcessor(bufferSize, channels, channels)
-  processor.onaudioprocess = (ev): void => {
-    const chs: Float32Array[] = []
-    for (let c = 0; c < channels; c++) chs.push(ev.inputBuffer.getChannelData(c).slice())
-    const interleaved = interleave(chs)
-    const pcm = float32ToInt16(interleaved)
-    opts.onChunk(pcm.buffer as ArrayBuffer)
+  // Capture on the audio thread; see pcm-capture.worklet.js for why.
+  await context.audioWorklet.addModule(pcmCaptureWorkletUrl)
+  const processor = new AudioWorkletNode(context, 'pcm-capture', {
+    numberOfInputs: 1,
+    numberOfOutputs: 1,
+    outputChannelCount: [channels],
+    channelCount: channels,
+    channelCountMode: 'explicit',
+    processorOptions: { channels, chunkFrames: Math.round(context.sampleRate * CHUNK_SECONDS) }
+  })
+  processor.port.onmessage = (ev: MessageEvent<ArrayBuffer>): void => {
+    opts.onChunk(ev.data)
   }
 
   const muteSink = context.createGain()
@@ -91,6 +83,17 @@ export async function startAudioCapture(
   analyser.connect(processor)
   processor.connect(muteSink)
   muteSink.connect(context.destination)
+
+  // Keep the output from being pure digital silence. After ~30s of an
+  // all-zero output Chromium swaps the sound card for a timer-driven fake
+  // output; once the window is minimised or hidden to the tray those timers
+  // are throttled and the graph renders only ~65% of real time, so a third of
+  // the audio is never captured and the recording crackles. 1e-6 is far below
+  // one 16-bit step: inaudible, and it rounds to zero if it is ever captured.
+  const keepAlive = context.createConstantSource()
+  keepAlive.offset.value = 1e-6
+  keepAlive.connect(context.destination)
+  keepAlive.start()
 
   if (context.state === 'suspended') {
     try {
@@ -113,13 +116,15 @@ export async function startAudioCapture(
       gain.gain.value = v
     },
     stop: (): void => {
-      processor.onaudioprocess = null
+      processor.port.onmessage = null
       try {
         source.disconnect()
         gain.disconnect()
         analyser.disconnect()
         processor.disconnect()
         muteSink.disconnect()
+        keepAlive.stop()
+        keepAlive.disconnect()
       } catch {
         // ignore
       }

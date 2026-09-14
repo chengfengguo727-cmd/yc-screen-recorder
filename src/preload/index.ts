@@ -8,6 +8,8 @@ export interface DisplayMapping {
   isPrimary: boolean
   label: string
   scaleFactor: number
+  refreshHz: number
+  manual: boolean
 }
 
 export interface ThumbnailInfo {
@@ -211,7 +213,10 @@ export interface Preferences {
 }
 
 const api = {
-  listDisplays: (): Promise<DisplayMapping[]> => ipcRenderer.invoke('recorder:displays'),
+  listDisplays: (force = false): Promise<DisplayMapping[]> =>
+    ipcRenderer.invoke('recorder:displays', force),
+  setOutputOverride: (displayId: number, outputIdx: number | null): Promise<DisplayMapping[]> =>
+    ipcRenderer.invoke('recorder:set-output-override', displayId, outputIdx),
   listEncoders: (): Promise<EncoderCapabilities> => ipcRenderer.invoke('recorder:encoders'),
   listThumbnails: (): Promise<ThumbnailInfo[]> => ipcRenderer.invoke('recorder:thumbnails'),
   getState: (): Promise<SessionState> => ipcRenderer.invoke('recorder:state'),

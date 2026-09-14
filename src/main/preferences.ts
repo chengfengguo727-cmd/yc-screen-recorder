@@ -17,6 +17,8 @@ export interface Preferences {
   encoder: string | null
   encoderQuality: 'speed' | 'balanced' | 'quality'
   clickHighlightEnabled: boolean
+  /** displayId -> ddagrab output index, set by hand when auto-detect guesses wrong */
+  displayOutputOverrides: Record<string, number>
   bitrate: string
   region: {
     displayId: number
@@ -74,6 +76,7 @@ const DEFAULTS: Preferences = {
   encoder: null,
   encoderQuality: 'balanced',
   clickHighlightEnabled: false,
+  displayOutputOverrides: {},
   bitrate: '12M',
   region: null,
   micEnabled: false,
