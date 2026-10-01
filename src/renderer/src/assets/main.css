@@ -273,6 +273,45 @@ body {
   margin-left: auto;
 }
 
+.clip-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #cbd0d8;
+}
+
+.clip-control label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.clip-time {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: #8e95a3;
+  font-variant-numeric: tabular-nums;
+}
+
+.clip-time input {
+  width: 44px;
+  padding: 3px 4px;
+  text-align: center;
+  background: #23262d;
+  color: #e6e9ef;
+  border: 1px solid #3a3e48;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.clip-time input:disabled {
+  opacity: 0.45;
+}
+
 .status-dot {
   width: 10px;
   height: 10px;

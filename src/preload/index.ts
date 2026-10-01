@@ -73,6 +73,16 @@ export interface StartArgs {
   audio: AudioTrackConfig[]
   webcam: WebcamArgs | null
   transcript: TranscriptArgs | null
+  /** Record this many seconds and stop by itself; null records until stopped. */
+  clipSeconds?: number | null
+}
+
+export interface FinishedInfo {
+  outputPath: string
+  durationMs: number
+  transcriptPath?: string | null
+  autoSplit?: boolean
+  clipCompleted?: boolean
 }
 
 export interface WhisperModelInfo {
@@ -177,6 +187,8 @@ export interface RecordingFile {
 export interface Preferences {
   outputDir: string | null
   maxRecordingMinutes: number
+  clipEnabled: boolean
+  clipSeconds: number
   uiLanguage: 'zh-TW' | 'en'
   autoLaunch: boolean
   autoStartRecording: boolean
@@ -337,13 +349,8 @@ const api = {
     ipcRenderer.on('recorder:log', listener)
     return () => ipcRenderer.removeListener('recorder:log', listener)
   },
-  onFinished: (
-    cb: (r: { outputPath: string; durationMs: number; transcriptPath?: string | null }) => void
-  ): (() => void) => {
-    const listener = (
-      _e: unknown,
-      r: { outputPath: string; durationMs: number; transcriptPath?: string | null }
-    ): void => cb(r)
+  onFinished: (cb: (r: FinishedInfo) => void): (() => void) => {
+    const listener = (_e: unknown, r: FinishedInfo): void => cb(r)
     ipcRenderer.on('recorder:finished', listener)
     return () => ipcRenderer.removeListener('recorder:finished', listener)
   },

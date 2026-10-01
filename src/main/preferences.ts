@@ -5,6 +5,8 @@ import { join } from 'path'
 export interface Preferences {
   outputDir: string | null // null = use default (userData/recordings)
   maxRecordingMinutes: number // 0 = no limit
+  clipEnabled: boolean // stop the recording automatically after clipSeconds
+  clipSeconds: number // clip length in seconds
   uiLanguage: 'zh-TW' | 'en'
   autoLaunch: boolean // register as Windows login item
   autoStartRecording: boolean // when auto-launched, immediately begin recording
@@ -65,6 +67,8 @@ export interface ScheduleEntry {
 const DEFAULTS: Preferences = {
   outputDir: null,
   maxRecordingMinutes: 600, // 10 hours
+  clipEnabled: false,
+  clipSeconds: 60,
   uiLanguage: 'zh-TW',
   autoLaunch: false,
   autoStartRecording: false,

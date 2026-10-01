@@ -50,6 +50,10 @@ export function RecordControls(): React.JSX.Element {
     whisperQueueSeconds,
     region,
     encoderQuality,
+    clipEnabled,
+    clipSeconds,
+    setClipEnabled,
+    setClipSeconds,
     clearTranscript
   } = useAppStore()
   const [busy, setBusy] = useState(false)
@@ -76,6 +80,14 @@ export function RecordControls(): React.JSX.Element {
       : session.status === 'paused'
         ? accumulated
         : session.durationMs ?? 0
+
+  const clipH = Math.floor(clipSeconds / 3600)
+  const clipM = Math.floor((clipSeconds % 3600) / 60)
+  const clipS = clipSeconds % 60
+  const setClipParts = (h: number, m: number, s: number): void => {
+    const clamp = (n: number, max: number): number => Math.max(0, Math.min(max, Math.floor(n) || 0))
+    setClipSeconds(Math.max(1, clamp(h, 23) * 3600 + clamp(m, 59) * 60 + clamp(s, 59)))
+  }
 
   const onStart = async (): Promise<void> => {
     if (mode === 'display' && selectedDisplayId == null) {
@@ -140,7 +152,8 @@ export function RecordControls(): React.JSX.Element {
         bitrate,
         audio: audioConfig,
         webcam: webcamArg,
-        transcript: transcriptArg
+        transcript: transcriptArg,
+        clipSeconds: clipEnabled ? clipSeconds : null
       })
     } catch (e) {
       audioManager.stopAll()
@@ -230,15 +243,28 @@ export function RecordControls(): React.JSX.Element {
     return off
   })
 
+  useEffect(() => {
+    // A clip stops itself in the main process, so drop the microphone and
+    // loopback capture here just as a manual stop does. An auto-split finishes
+    // one file and keeps recording, so leave capture running for that.
+    const off = window.api.onFinished((r) => {
+      if (r?.autoSplit) return
+      audioManager.stopAll()
+      void refreshRecordings()
+    })
+    return off
+  }, [refreshRecordings])
+
   const partTag =
     session.partCount && session.partCount > 1
       ? ` (${t('recordControls.partLabel', { n: session.partCount })})`
       : ''
+  const clipTag = clipEnabled ? ` / ${formatDuration(clipSeconds * 1000)}` : ''
   const statusText =
     session.status === 'recording'
-      ? `${t('status.recording')} ${formatDuration(duration)}${partTag}`
+      ? `${t('status.recording')} ${formatDuration(duration)}${clipTag}${partTag}`
       : session.status === 'paused'
-        ? `${t('status.paused')} ${formatDuration(duration)}${partTag}`
+        ? `${t('status.paused')} ${formatDuration(duration)}${clipTag}${partTag}`
         : session.status === 'starting'
           ? t('status.starting')
           : session.status === 'stopping'
@@ -251,6 +277,48 @@ export function RecordControls(): React.JSX.Element {
 
   return (
     <div className="record-bar">
+      <div className="clip-control">
+        <label title={t('recordControls.clipTooltip')}>
+          <input
+            type="checkbox"
+            checked={clipEnabled}
+            disabled={isActive}
+            onChange={(e) => setClipEnabled(e.target.checked)}
+          />
+          {t('recordControls.clip')}
+        </label>
+        <span className="clip-time" title={t('recordControls.clipTooltip')}>
+          <input
+            type="number"
+            min={0}
+            max={23}
+            title={t('recordControls.clipHours')}
+            value={clipH}
+            disabled={isActive || !clipEnabled}
+            onChange={(e) => setClipParts(Number(e.target.value), clipM, clipS)}
+          />
+          :
+          <input
+            type="number"
+            min={0}
+            max={59}
+            title={t('recordControls.clipMinutes')}
+            value={clipM}
+            disabled={isActive || !clipEnabled}
+            onChange={(e) => setClipParts(clipH, Number(e.target.value), clipS)}
+          />
+          :
+          <input
+            type="number"
+            min={0}
+            max={59}
+            title={t('recordControls.clipSeconds')}
+            value={clipS}
+            disabled={isActive || !clipEnabled}
+            onChange={(e) => setClipParts(clipH, clipM, Number(e.target.value))}
+          />
+        </span>
+      </div>
       <div className={`status-dot ${session.status}`} />
       <div className="status-text">{statusText}</div>
       <button

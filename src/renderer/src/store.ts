@@ -34,6 +34,8 @@ export const PERSISTED_KEYS = [
   'selectedDisplayId',
   'framerate',
   'drawMouse',
+  'clipEnabled',
+  'clipSeconds',
   'encoder',
   'bitrate',
   'encoderQuality',
@@ -67,6 +69,8 @@ interface AppState {
   selectedDisplayId: number | null
   framerate: number
   drawMouse: boolean
+  clipEnabled: boolean
+  clipSeconds: number
   encoder: string | null
   encoderQuality: 'speed' | 'balanced' | 'quality'
   clickHighlightEnabled: boolean
@@ -103,6 +107,8 @@ interface AppState {
   setSelectedDisplayId: (id: number) => void
   setFramerate: (n: number) => void
   setDrawMouse: (v: boolean) => void
+  setClipEnabled: (v: boolean) => void
+  setClipSeconds: (s: number) => void
   setEncoder: (e: string) => void
   setBitrate: (b: string) => void
   setEncoderQuality: (q: 'speed' | 'balanced' | 'quality') => void
@@ -142,6 +148,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedDisplayId: null,
   framerate: 30,
   drawMouse: true,
+  clipEnabled: false,
+  clipSeconds: 60,
   encoder: null,
   encoderQuality: 'balanced',
   clickHighlightEnabled: false,
@@ -174,6 +182,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       selectedDisplayId: prefs.selectedDisplayId,
       framerate: prefs.framerate,
       drawMouse: prefs.drawMouse,
+      clipEnabled: prefs.clipEnabled,
+      clipSeconds: prefs.clipSeconds,
       encoder: prefs.encoder,
       encoderQuality: prefs.encoderQuality,
       clickHighlightEnabled: prefs.clickHighlightEnabled,
@@ -263,6 +273,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSelectedDisplayId: (id): void => set({ selectedDisplayId: id }),
   setFramerate: (n): void => set({ framerate: n }),
   setDrawMouse: (v): void => set({ drawMouse: v }),
+  setClipEnabled: (v): void => set({ clipEnabled: v }),
+  setClipSeconds: (s): void => set({ clipSeconds: s }),
   setEncoder: (e): void => set({ encoder: e }),
   setBitrate: (b): void => set({ bitrate: b }),
   setEncoderQuality: (q): void => set({ encoderQuality: q }),

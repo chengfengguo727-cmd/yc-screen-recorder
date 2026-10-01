@@ -57,6 +57,8 @@ export interface StartArgs {
   audio: AudioTrackConfig[]
   webcam: WebcamArgs | null
   transcript: TranscriptArgs | null
+  /** Record this many seconds and stop by itself; null records until stopped. */
+  clipSeconds?: number | null
 }
 
 function timestamp(): string {
@@ -133,7 +135,8 @@ async function buildAndStartSession(args: StartArgs, outputPath: string): Promis
     audio: args.audio,
     webcam: args.webcam,
     transcript,
-    maxSeconds
+    maxSeconds,
+    clipSeconds: args.clipSeconds ?? null
   })
 }
 
@@ -152,7 +155,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
       continuationOutput = null
       // Stopping just after an auto-split used to leave an extra one-second
       // recording that only showed the final frame; that tail isn't worth keeping.
-      if (r?.outputPath && r.durationMs < MIN_CONTINUATION_MS) {
+      if (r?.outputPath && !r.clipCompleted && r.durationMs < MIN_CONTINUATION_MS) {
         await rm(r.outputPath, { force: true, maxRetries: 5, retryDelay: 200 }).catch(() => {})
         if (r.transcriptPath) await rm(r.transcriptPath, { force: true }).catch(() => {})
         getWindow()?.webContents.send(
@@ -163,6 +166,16 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     }
     getWindow()?.webContents.send('recorder:finished', r)
     if (r?.autoSplit && lastStartArgs) {
+      // A clip longer than the auto-split limit spans several files, so carry
+      // the time it still owes into the next one.
+      if (lastStartArgs.clipSeconds != null) {
+        const remaining = lastStartArgs.clipSeconds - (r.durationMs ?? 0) / 1000
+        if (remaining < 1) {
+          lastStartArgs = null
+          return
+        }
+        lastStartArgs = { ...lastStartArgs, clipSeconds: remaining }
+      }
       try {
         const nextOutput = join(getRecordingsDir(), `rec-${timestamp()}.mp4`)
         await buildAndStartSession(lastStartArgs, nextOutput)

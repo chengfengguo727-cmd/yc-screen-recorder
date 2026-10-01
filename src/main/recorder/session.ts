@@ -49,6 +49,8 @@ export interface StartSessionInput {
   webcam: WebcamConfig | null
   transcript: TranscriptConfig | null
   maxSeconds: number | null
+  /** Clip length: stop by itself once this many seconds have been recorded. */
+  clipSeconds: number | null
 }
 
 interface PartInfo {
@@ -212,6 +214,16 @@ export class RecordingSession extends EventEmitter {
       }
     }
 
+    // A clip runs for a fixed length, so this part gets whatever time the clip
+    // still owes — or the auto-split limit, whichever comes first.
+    const recordedMs = this.parts.reduce(
+      (sum, p) => sum + ((p.endedAt ?? p.startedAt) - p.startedAt),
+      0
+    )
+    const clipRemaining = input.clipSeconds != null ? input.clipSeconds - recordedMs / 1000 : null
+    const limits = [input.maxSeconds, clipRemaining].filter((n): n is number => n != null && n > 0)
+    const partSeconds = limits.length > 0 ? Math.min(...limits) : null
+
     const args = buildFfmpegArgs({
       source: input.source,
       audio: audioInputs,
@@ -221,7 +233,7 @@ export class RecordingSession extends EventEmitter {
       bitrate: input.bitrate,
       outputPath: mp4Path,
       transcript: null,
-      maxSeconds: input.maxSeconds
+      maxSeconds: partSeconds
     })
     this.pushLog(`$ ffmpeg [part ${partIndex}] ${args.join(' ')}`)
 
@@ -320,8 +332,15 @@ export class RecordingSession extends EventEmitter {
           // stop() flow handles finalize itself
           return
         }
-        // Otherwise this was an auto-split (maxSeconds hit) - finalize and emit
-        void this.finalizeAndEmit(true)
+        // Otherwise the part hit its time limit: either the clip is done, or
+        // this was an auto-split and recording continues in the next file.
+        const totalMs = this.parts.reduce(
+          (sum, p) => sum + ((p.endedAt ?? p.startedAt) - p.startedAt),
+          0
+        )
+        const clipCompleted = input.clipSeconds != null && totalMs / 1000 >= input.clipSeconds - 0.5
+        if (clipCompleted) this.pushLog(`[clip] reached ${input.clipSeconds}s, stopping`)
+        void this.finalizeAndEmit(!clipCompleted, clipCompleted)
       })
     })
 
@@ -415,7 +434,7 @@ export class RecordingSession extends EventEmitter {
     })
   }
 
-  private async finalizeAndEmit(autoSplit: boolean): Promise<void> {
+  private async finalizeAndEmit(autoSplit: boolean, clipCompleted = false): Promise<void> {
     if (!this.currentInput) {
       this.state = { status: 'idle' }
       this.emit('state', this.getState())
@@ -490,7 +509,8 @@ export class RecordingSession extends EventEmitter {
       outputPath: finalMp4,
       durationMs: totalMs,
       transcriptPath: finalSrt,
-      autoSplit
+      autoSplit,
+      clipCompleted
     })
 
     this.currentInput = null
