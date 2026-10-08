@@ -1,5 +1,6 @@
 appId: com.yc.screen-recorder
 productName: YC Screen Recorder
+afterPack: build/afterPack.cjs
 directories:
   buildResources: build
 files:
@@ -22,6 +23,8 @@ extraResources:
 win:
   executableName: YC Screen Recorder
   icon: build/icon.ico
+  # Extracting electron-builder's signing toolchain needs symlink privileges
+  # this machine does not grant; build/afterPack.cjs writes the icon instead.
   signAndEditExecutable: false
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
